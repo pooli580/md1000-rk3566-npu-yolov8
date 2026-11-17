@@ -1,0 +1,151 @@
+# rknpu-module
+
+Out-of-tree kernel module for the Rockchip RKNPU driver, ported from the [rockchip-linux/kernel](https://github.com/rockchip-linux/kernel).
+
+Tested on Armbian mainline kernel 6.19.x and 7.0.0.
+
+![An inference example](assets/inference.png)
+
+## 1. Tested Environment
+
+| Item | Value |
+|---|---|
+| Board | OrangePi 3B v1.1 (RK3566) |
+| OS | DietPi OS (Debian Trixie) |
+| Kernel | 6.19.3-edge-rockchip64, 7.0.0-rc7-edge-rockchip64 |
+| RKNN Runtime | librknnrt v2.3.2 |
+
+## 2. Prerequisites
+
+```sh
+apt install dkms build-essential linux-headers-$whatever_your_kernel_is
+```
+
+## 3. Build & Install
+
+This module can be built and installed using DKMS or manually. DKMS is preferred for ease of maintenance.
+
+### 3.1. DKMS (Recommended)
+
+```sh
+# In the rknpu-module directory:
+cp -r . /usr/src/rknpu-0.9.8
+
+dkms add rknpu/0.9.8
+dkms build rknpu/0.9.8
+dkms install rknpu/0.9.8
+```
+
+DKMS automatically rebuilds the module on kernel updates.
+
+### 3.2. Manual Build
+
+If you want to cross-compile from an x86_64 host, set up a cross-compilation environment and point `KDIR` to the ARM64 kernel headers.
+
+```sh
+# a) Native build on the device
+make
+sudo make install
+sudo depmod -a
+
+# b) Cross-compile from an x86_64 host
+make KDIR=/path/to/arm64-kernel-headers
+```
+
+## 4. Device Tree Overlay
+
+Mainline DTBs do not include an NPU node. This project provides a DT overlay ([`dts/rk3566-rknpu-overlay.dts`](dts/rk3566-rknpu-overlay.dts)) that adds the required nodes at boot time without modifying the original DTB.
+
+### 4.1. Build the Overlay
+
+Requires `device-tree-compiler` and kernel headers with `dt-bindings/`.
+
+```sh
+make dtbo
+# or, with explicit kernel headers path:
+make dtbo KDIR=/usr/src/linux-headers-$(uname -r)/build
+```
+
+### 4.2. Install and Enable
+
+```sh
+sudo make install-dtbo
+```
+
+Then edit `/boot/dietpiEnv.txt` (or `/boot/armbianEnv.txt`):
+
+```
+user_overlays=rk3566-rknpu
+```
+
+Reboot to apply.
+
+## 5. Enabling the Driver and Verifying
+
+```sh
+modprobe rknpu
+
+dmesg | grep rknpu
+# Expected:
+#   RKNPU fde40000.npu: RKNPU: rknpu iommu device-tree entry not found!, using non-iommu mode
+#   [drm] Initialized rknpu 0.9.8 for fde40000.npu on minor X
+#   RKNPU fde40000.npu: RKNPU: devfreq enabled, initial freq: 594000000 Hz, volt: 900000 uV
+
+ls -l /dev/dri/renderD*
+```
+
+### 5.1. Devfreq (DVFS)
+
+The driver supports dynamic voltage and frequency scaling via the standard Linux devfreq framework. When an OPP table is present in the DTB, the driver automatically registers a devfreq device at `/sys/class/devfreq/fde40000.npu/`.
+
+Available frequencies (RK3566): 200 / 297 / 400 / 600 / 700 / 800 MHz.
+
+```sh
+# Check current frequency
+cat /sys/class/devfreq/fde40000.npu/cur_freq
+
+# List available frequencies
+cat /sys/class/devfreq/fde40000.npu/available_frequencies
+
+# Switch to manual frequency control
+echo userspace > /sys/class/devfreq/fde40000.npu/governor
+echo 800000000 > /sys/class/devfreq/fde40000.npu/min_freq
+echo 800000000 > /sys/class/devfreq/fde40000.npu/max_freq
+
+# Restore automatic governor
+echo rknpu_ondemand > /sys/class/devfreq/fde40000.npu/governor
+echo 200000000 > /sys/class/devfreq/fde40000.npu/min_freq
+echo 800000000 > /sys/class/devfreq/fde40000.npu/max_freq
+```
+
+If the OPP table is missing from the DTB, devfreq is silently skipped and the NPU runs at the fixed clock rate set by `assigned-clock-rates` (600 MHz).
+
+## 6. Known Issues
+
+### 6.1. IOMMU Unusable
+
+The RK3566 IOMMU v2 hardware cannot access page tables at physical addresses above 4 GB. The mainline `rockchip-iommu` driver (`iommu_data_ops_v2`) does not set `GFP_DMA32`, so page tables may be allocated in the 4 GB+ region, causing bus errors if IOMMU mode is enabled.
+
+Adding `mem=3840M` to the kernel command line works around this (forces all allocations below 4 GB) at the cost of smaller RAM. The current approach is to disable IOMMU (`status = "disabled"` in DTB) and run in non-IOMMU mode. This is a bug in `drivers/iommu/rockchip-iommu.c` and cannot be fixed from an out-of-tree module.
+
+### 6.2. Only Tested on RK3566
+
+The driver code supports RK3568, RK3588, and other SoCs, but has only been tested on RK3566 (OrangePi 3B). Other SoCs require their own DTB modifications and testing.
+
+## 7. FAQ
+
+**Q: Why not just use [Rocket](https://gitlab.freedesktop.org/mesa/mesa/-/tree/main/drivers/accel/rocket)?**
+
+Rocket only supports the RK3588 and newer SoCs. The NPU in RK3566/RK3568 has architectural differences, and the Rocket project has no plans to reverse-engineer support for it.
+
+**Q: I'm not using DietPi OS. Will this work?**
+
+As long as you are running a sufficiently recent Armbian kernel, this module should be distribution-agnostic.
+
+## 8. See Also
+
+- [DietPi#7301 — NPU support for OrangePi 3B](https://github.com/MichaIng/DietPi/issues/7301)
+
+## 9. License
+
+GPL v2, consistent with the original Rockchip driver source.

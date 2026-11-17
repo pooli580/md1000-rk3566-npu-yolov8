@@ -1,0 +1,18 @@
+# models / large binaries
+*.rknn
+*.onnx
+*.so
+*.ko
+*.o
+*.cmd
+*.mod*
+Module.symvers
+modules.order
+*.tar.gz
+*.tgz
+*.jpg
+*.png
+__pycache__/
+*.pyc
+.venv/
+venv/
