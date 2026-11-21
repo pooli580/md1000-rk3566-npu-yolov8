@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0-or-later OR MIT)
+/dts-v1/;
+/plugin/;
+
+&rk809 {
+	vcc4-supply = <&vcc3v3_sys>;
+
+	regulators {
+		md1000_vdd_npu: DCDC_REG4 {
+			regulator-name = "vdd_npu";
+			regulator-min-microvolt = <875000>;
+			regulator-max-microvolt = <900000>;
+			regulator-ramp-delay = <6001>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+	};
+};
+
+&{/npu@fde40000} {
+	rknpu-supply = <&md1000_vdd_npu>;
+};
+
+&{/npu-opp-table} {
+	opp-200000000 {
+		opp-microvolt = <875000>;
+	};
+
+	opp-297000000 {
+		status = "disabled";
+	};
+
+	opp-400000000 {
+		opp-microvolt = <875000>;
+	};
+
+	opp-600000000 {
+		opp-microvolt = <900000>;
+	};
+
+	opp-700000000 {
+		status = "disabled";
+	};
+
+	opp-800000000 {
+		status = "disabled";
+	};
+};

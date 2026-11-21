@@ -1759,7 +1759,8 @@ int rknpu_gem_sync_ioctl(struct drm_device *dev, void *data,
 					 RKNPU_CACHE_NBUF, args->flags);
 		}
 
-		for_each_sg(rknpu_obj->sgt->sgl, sg, rknpu_obj->sgt->nents, i) {
+		/* Cache maintenance walks physical segments, before IOVA merging. */
+		for_each_sg(rknpu_obj->sgt->sgl, sg, rknpu_obj->sgt->orig_nents, i) {
 			if (length == 0)
 				break;
 

@@ -7,6 +7,11 @@
 #ifndef __LINUX_RKNPU_DEVFREQ_H
 #define __LINUX_RKNPU_DEVFREQ_H
 
+static inline unsigned long rknpu_get_npu_clock_rate(struct rknpu_device *rknpu)
+{
+	return clk_get_rate(rknpu->devfreq_clk ?: rknpu->clks[0].clk);
+}
+
 #if defined(CONFIG_PM_DEVFREQ) && !defined(RKNPU_NO_DEVFREQ)
 void rknpu_devfreq_lock(struct rknpu_device *rknpu_dev);
 void rknpu_devfreq_unlock(struct rknpu_device *rknpu_dev);

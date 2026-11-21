@@ -432,7 +432,7 @@ static int rknpu_action(struct rknpu_device *rknpu_dev,
 		break;
 	case RKNPU_GET_FREQ:
 #ifndef FPGA_PLATFORM
-		args->value = clk_get_rate(rknpu_dev->clks[0].clk);
+		args->value = rknpu_get_npu_clock_rate(rknpu_dev);
 #endif
 		ret = 0;
 		break;
@@ -1579,7 +1579,9 @@ static int rknpu_probe(struct platform_device *pdev)
 		goto err_detach_pm;
 
 #ifndef FPGA_PLATFORM
-	rknpu_devfreq_init(rknpu_dev);
+	ret = rknpu_devfreq_init(rknpu_dev);
+	if (ret)
+		dev_warn(dev, "NPU devfreq unavailable: %d\n", ret);
 #endif
 
 	// set default power put delay to 3s

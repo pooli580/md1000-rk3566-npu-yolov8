@@ -6,10 +6,9 @@
  * MD1000-specific differences (do not change codex's original):
  *   1. SCMI clock: this ophub kernel's rk3568-cru.h names the NPU
  *      SCMI clock index SCMI_CLK_NPU2 (value 2), not SCMI_CLK_NPU.
- *   2. The MD1000 DTB has no vdd_npu rail (rk809 node carries no
- *      regulators; rails are fixed regulators without an NPU rail),
- *      so rknpu-supply is omitted. The driver treats the regulator
- *      as optional (devm_regulator_get_optional).
+ *   2. The base MD1000 DTB does not describe the NPU rail. Apply
+ *      rk3566-md1000-npu-dvfs afterwards to bind the RK809 supply
+ *      and select the validated OPPs.
  *
  * Compile (same commands as the Makefile dtbo target, but KDIR must
  * point at the headers ROOT so that include/dt-bindings resolves):
@@ -85,22 +84,18 @@ clocks = <&scmi_clk 2>,
  <&cru HCLK_NPU>;
 clock-names = "scmi_clk", "clk", "aclk", "hclk";
 assigned-clocks = <&cru CLK_NPU>;
-/* firmware caps NPU clock at ~600MHz via SCMI (594MHz); 800MHz OPP unreachable on MD1000 */
+/* Mirror the MD1000 boot clock on the CRU. */
 assigned-clock-rates = <600000000>;
 resets = <&cru SRST_A_NPU>, <&cru SRST_H_NPU>;
 reset-names = "srst_a", "srst_h";
 power-domains = <&power RK3568_PD_NPU>;
 operating-points-v2 = <&npu_opp_table>;
-/* no rknpu-supply: MD1000 has no dedicated NPU rail */
 status = "okay";
 };
 
 /*
- * IOMMU for NPU — enabled for MD1000 int8 testing:
- * int8 models request NBUF/SRAM-class buffers; non-IOMMU (GEM phys
- * passthrough) mode corrupts int8 execution deterministically while
- * fp16 works. Mainline rockchip-iommu driver already handles
- * "rockchip,rk3568-iommu" on this kernel (VPU iommu uses it).
+ * The companion rk3566-md1000-npu-iommu-fix overlay attaches this
+ * IOMMU after the base NPU node has been created.
  */
 iommu@fde4b000 {
 compatible = "rockchip,rk3568-iommu";

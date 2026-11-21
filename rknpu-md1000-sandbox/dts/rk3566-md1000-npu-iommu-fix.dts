@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0-or-later OR MIT)
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	md1000_npu_mmu: iommu@fde4b000 {
+		#iommu-cells = <0>;
+		status = "okay";
+	};
+
+	npu@fde40000 {
+		iommus = <&md1000_npu_mmu>;
+	};
+};

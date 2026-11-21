@@ -16,6 +16,7 @@
 /* governor.h not needed: update_devfreq() is declared in <linux/devfreq.h> */
 
 #include "rknpu_drv.h"
+#include "rknpu_devfreq.h"
 #include "rknpu_mm.h"
 #include "rknpu_reset.h"
 #include "rknpu_debugger.h"
@@ -184,7 +185,7 @@ static int rknpu_freq_show(struct seq_file *m, void *data)
 
 	rknpu_power_get(rknpu_dev);
 
-	current_freq = clk_get_rate(rknpu_dev->clks[0].clk);
+	current_freq = rknpu_get_npu_clock_rate(rknpu_dev);
 
 	rknpu_power_put(rknpu_dev);
 
@@ -193,58 +194,12 @@ static int rknpu_freq_show(struct seq_file *m, void *data)
 	return 0;
 }
 
-#if defined(CONFIG_PM_DEVFREQ) && !defined(RKNPU_NO_DEVFREQ)
 static ssize_t rknpu_freq_set(struct file *file, const char __user *ubuf,
 			      size_t len, loff_t *offp)
 {
-	struct seq_file *priv = file->private_data;
-	struct rknpu_debugger_node *node = priv->private;
-	struct rknpu_debugger *debugger = node->debugger;
-	struct rknpu_device *rknpu_dev =
-		container_of(debugger, struct rknpu_device, debugger);
-	unsigned long current_freq = 0;
-	char buf[16];
-	unsigned long freq = 0;
-	int ret = 0;
-
-	if (len == 0 || len >= sizeof(buf))
-		return -EINVAL;
-	if (copy_from_user(buf, ubuf, len))
-		return -EFAULT;
-	buf[len] = '\0';
-	if (buf[len - 1] == '\n')
-		buf[len - 1] = '\0';
-
-	ret = kstrtoul(buf, 10, &freq);
-	if (ret) {
-		LOG_ERROR("failed to parse freq string: %s\n", buf);
-		return -EFAULT;
-	}
-
-	if (!rknpu_dev->devfreq)
-		return -EFAULT;
-
-	rknpu_power_get(rknpu_dev);
-
-	current_freq = clk_get_rate(rknpu_dev->clks[0].clk);
-	if (freq != current_freq) {
-		rknpu_dev->ondemand_freq = freq;
-		mutex_lock(&rknpu_dev->devfreq->lock);
-		update_devfreq(rknpu_dev->devfreq);
-		mutex_unlock(&rknpu_dev->devfreq->lock);
-	}
-
-	rknpu_power_put(rknpu_dev);
-
-	return len;
+	/* Frequency changes go through the devfreq policy. */
+	return -EOPNOTSUPP;
 }
-#else
-static ssize_t rknpu_freq_set(struct file *file, const char __user *ubuf,
-			      size_t len, loff_t *offp)
-{
-	return -EFAULT;
-}
-#endif
 
 static int rknpu_volt_show(struct seq_file *m, void *data)
 {

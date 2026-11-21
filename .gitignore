@@ -3,6 +3,7 @@
 *.onnx
 *.so
 *.ko
+*.dtbo
 *.o
 *.cmd
 *.mod*

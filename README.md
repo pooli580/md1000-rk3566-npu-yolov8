@@ -2,7 +2,11 @@
 
 浪潮 Inspur MD1000 开发板（RK3566）上完成 Rockchip RKNPU 内核驱动移植（接手自 codex 的 out-of-tree 移植工程），并打通 YOLOv8 INT8 全流程：量化转换 → 板上部署 → 检出质量验证 → USB 相机实时检测。
 
-## 最终成绩
+## MD1000 驱动和设备树更新
+
+已在 `6.18.39-ophub` 验证 RKNPU 调频、RK809 调压、NPU IOMMU、VDPU346 硬解和 Panfrost 调压。NPU 默认工作点为 200／400／600 MHz。构建、overlay 顺序与验证命令见 [MD1000 内核适配](docs/MD1000_KERNEL.md)。
+
+## 初版性能记录
 
 | 配置 | 延迟 | 吞吐 | 检出（COCO bus.jpg：3 person + 1 bus） |
 |---|---|---|---|
@@ -18,15 +22,16 @@
 2. **解法**：用 **toolkit2 1.6.0**（1.x 模型格式）转换即完全正常，检出质量几乎无损（score 差 0.02~0.08）。1.6.0 官方 wheel 在 [airockchip/rknn-toolkit2 v1.6.0 tag](https://github.com/airockchip/rknn-toolkit2/tree/v1.6.0/rknn-toolkit2/packages)。
 3. **416/320 输入重导出**：用 [airockchip/ultralytics_yolov8](https://github.com/airockchip/ultralytics_yolov8) fork（RKOPT 优化图），把 `Detect` 头的 rknn 分支条件扩到 `onnx`、`imgsz`/`batch` 改配置即可导出 RKNN 优化 onnx，再走 1.6.0 量化。
 4. **相机实时**：YUYV 320×240 直采免缩放 + 采集/推理双线程流水线 + cls 置信度预过滤后处理（DFL 只算候选格），端到端打满相机 30fps。
-5. IOMMU 模式在主线内核移植上不可用（`rknpu_iommu.c` 被 `CONFIG_NO_GKI` 门控、且主线 iommu glue 未适配），non-IOMMU + DRM GEM 是当前可用路径。
+5. 初版以 non-IOMMU DRM GEM 路径验证推理。更新后的 MD1000 overlay 和 RKNPU 缓存同步修复已在 IOMMU 模式下通过 INT8 回归。
 
 ## 目录结构
 
 ```
-├── driver/rknpu-md1000-sandbox/   # RKNPU v0.9.8 out-of-tree 内核模块（MD1000 移植版）
-│   ├── src/                        # 驱动源码（含 vdd-supply 容忍补丁）
-│   ├── dts/rk3566-md1000-rknpu-overlay.dts  # MD1000 设备树 overlay（SCMI 时钟/无供电轨/reg=0x100）
+├── rknpu-md1000-sandbox/           # RKNPU v0.9.8 out-of-tree 内核模块（MD1000 移植版）
+│   ├── src/                       # 调频、调压与 IOMMU 缓存同步
+│   ├── dts/                       # MD1000 启动所用的设备树 overlay
 │   ├── Kbuild / Makefile / dkms.conf
+├── patches/                       # VDPU346 内核驱动回移补丁
 ├── conversion/                    # WSL/PC 侧模型转换
 │   ├── quantize.py                 # 2.3.2 量化（用于对照/FP16）
 │   ├── quantize16*.py              # 1.6.0 量化（INT8 正确产出的关键）
@@ -35,7 +40,8 @@
 │   ├── cam_detect_320.py           # USB 相机实时检测（流水线 + 预过滤）
 │   ├── npu_yolov8_test*.py         # 单图检出质量测试
 │   ├── bench_fps*.py / bench_client*.py  # 吞吐基准（单/多客户端）
-├── docs/PROGRESS.md               # 完整排查记录与交接文档
+├── docs/MD1000_KERNEL.md          # 当前驱动和设备树的构建、部署与验证
+├── docs/PROGRESS.md               # 初版排查记录
 ```
 
 ## 环境要求
@@ -46,9 +52,8 @@
 ## 快速上手
 
 ```bash
-# 板端编译驱动（需 linux-headers）
-cd driver/rknpu-md1000-sandbox && make && sudo make install && sudo depmod -a
-# overlay 编译安装（cpp + dtc + fdtoverlay，见 conversion/../board/deploy_overlay.sh）
+# 板端编译驱动和设备树（需匹配的内核头文件和 dtc）
+make -C rknpu-md1000-sandbox all md1000-dtbo
 
 # 转换 INT8（PC/WSL，1.6.0 环境）
 python conversion/quantize16_320.py

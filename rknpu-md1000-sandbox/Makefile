@@ -24,8 +24,10 @@ DTS_DIR     := $(CURDIR)/dts
 OVERLAY_SRC := $(DTS_DIR)/rk3566-rknpu-overlay.dts
 OVERLAY_PP  := $(OVERLAY_SRC).preprocessed
 OVERLAY_OUT := $(DTS_DIR)/rk3566-rknpu.dtbo
+MD1000_OVERLAYS := rknpu vdpu346 npu-dvfs npu-iommu-fix gpu-dvfs
+MD1000_DTBO := $(addprefix $(DTS_DIR)/rk3566-md1000-,$(addsuffix .dtbo,$(MD1000_OVERLAYS)))
 
-.PHONY: all clean install dtbo install-dtbo
+.PHONY: all clean install dtbo install-dtbo md1000-dtbo
 
 all:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KDIR) M=$(CURDIR) modules
@@ -46,3 +48,11 @@ $(OVERLAY_OUT): $(OVERLAY_SRC)
 
 install-dtbo: $(OVERLAY_OUT)
 	install -D -m 644 $(OVERLAY_OUT) /boot/overlay-user/rk3566-rknpu.dtbo
+
+md1000-dtbo: $(MD1000_DTBO)
+
+$(DTS_DIR)/rk3566-md1000-rknpu.dtbo: $(DTS_DIR)/rk3566-md1000-rknpu-overlay.dts
+	bash -o pipefail -c 'cpp -nostdinc -I "$$1/include" -undef -x assembler-with-cpp "$$2" | dtc -@ -I dts -O dtb -o "$$3" -' -- "$(KDIR)" "$<" "$@"
+
+$(DTS_DIR)/rk3566-md1000-%.dtbo: $(DTS_DIR)/rk3566-md1000-%.dts
+	dtc -@ -I dts -O dtb -o "$@" "$<"

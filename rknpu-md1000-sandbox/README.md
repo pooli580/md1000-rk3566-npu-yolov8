@@ -1,5 +1,7 @@
 # rknpu-module
 
+For Inspur MD1000 on `6.18.39-ophub`, follow the [board-specific build and overlay guide](../docs/MD1000_KERNEL.md). The sections below describe the original upstream setup.
+
 Out-of-tree kernel module for the Rockchip RKNPU driver, ported from the [rockchip-linux/kernel](https://github.com/rockchip-linux/kernel).
 
 Tested on Armbian mainline kernel 6.19.x and 7.0.0.

@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0-or-later OR MIT)
+/dts-v1/;
+/plugin/;
+
+&rk809 {
+	vcc2-supply = <&vcc3v3_sys>;
+
+	regulators {
+		md1000_gpu_rail: DCDC_REG2 {
+			regulator-name = "vdd_gpu";
+			regulator-min-microvolt = <875000>;
+			regulator-max-microvolt = <900000>;
+			regulator-ramp-delay = <6001>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+	};
+};
+
+&gpu {
+	mali-supply = <&md1000_gpu_rail>;
+};
+
+&gpu_opp_table {
+	opp-200000000 {
+		opp-microvolt = <875000>;
+	};
+
+	opp-300000000 {
+		opp-microvolt = <875000>;
+	};
+
+	opp-400000000 {
+		opp-microvolt = <875000>;
+	};
+
+	opp-600000000 {
+		opp-microvolt = <900000>;
+	};
+
+	opp-700000000 {
+		status = "disabled";
+	};
+
+	opp-800000000 {
+		status = "disabled";
+	};
+};
